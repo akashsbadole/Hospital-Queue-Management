@@ -1,0 +1,6 @@
+ID,Name,Category,Quantity,Unit,Price,Expiry Date,Manufacturer,Description,Status,Working Condition,Batch Number,Storage Location,Supplier
+1,Paracetamol,Pain Killers,500,tablets,5.99,2025-12-31,PharmaCorp,Pain relief medication,in_stock,good,PC001,A1-01,PharmaCorp Ltd
+2,Amoxicillin,Antibiotics,20,capsules,12.50,2024-06-30,MediLab,Antibiotic medication,low_stock,good,ML002,B2-05,MediLab Inc
+3,Vitamin C,Vitamins,0,tablets,8.99,2024-12-31,HealthPlus,Vitamin C supplement,out_of_stock,expired,HP003,C3-02,HealthPlus Co
+4,Ibuprofen,Pain Killers,200,tablets,7.99,2025-08-15,PharmaCorp,Anti-inflammatory medication,in_stock,good,PC004,A1-03,PharmaCorp Ltd
+5,Lisinopril,Cardiovascular,15,mg,15.99,2024-09-30,CardioCare,Blood pressure medication,low_stock,damaged,CC005,D4-01,CardioCare Systems

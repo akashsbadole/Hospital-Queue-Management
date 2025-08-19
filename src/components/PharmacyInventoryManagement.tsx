@@ -1,0 +1,757 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Badge } from "@/components/ui/badge"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Package, Plus, Edit, Trash2, AlertTriangle, Search, Filter, Download, Upload, FileText } from "lucide-react"
+
+interface Medicine {
+  id: string
+  name: string
+  category: string
+  quantity: number
+  unit: string
+  price: number
+  expiryDate: string
+  manufacturer: string
+  description?: string
+  status: 'in_stock' | 'low_stock' | 'out_of_stock'
+  workingCondition: 'good' | 'damaged' | 'expired' | 'recalled'
+  batchNumber?: string
+  storageLocation?: string
+  supplier?: string
+}
+
+export default function PharmacyInventoryManagement() {
+  const [medicines, setMedicines] = useState<Medicine[]>([])
+  const [filteredMedicines, setFilteredMedicines] = useState<Medicine[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [selectedCategory, setSelectedCategory] = useState("all")
+  const [selectedStatus, setSelectedStatus] = useState("all")
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [editingMedicine, setEditingMedicine] = useState<Medicine | null>(null)
+
+  // Form state
+  const [formData, setFormData] = useState({
+    name: "",
+    category: "",
+    quantity: "",
+    unit: "",
+    price: "",
+    expiryDate: "",
+    manufacturer: "",
+    description: "",
+    workingCondition: "good" as 'good' | 'damaged' | 'expired' | 'recalled',
+    batchNumber: "",
+    storageLocation: "",
+    supplier: "",
+  })
+
+  const categories = [
+    "Antibiotics",
+    "Pain Killers",
+    "Vitamins",
+    "Cardiovascular",
+    "Diabetes",
+    "Respiratory",
+    "Gastrointestinal",
+    "Dermatology",
+    "Neurology",
+    "Other"
+  ]
+
+  const workingConditions = [
+    { value: "good", label: "Good" },
+    { value: "damaged", label: "Damaged" },
+    { value: "expired", label: "Expired" },
+    { value: "recalled", label: "Recalled" }
+  ]
+
+  useEffect(() => {
+    fetchMedicines()
+  }, [])
+
+  useEffect(() => {
+    filterMedicines()
+  }, [medicines, searchTerm, selectedCategory, selectedStatus])
+
+  const fetchMedicines = async () => {
+    setLoading(true)
+    try {
+      const response = await fetch('/api/pharmacy/inventory/medicines')
+      if (response.ok) {
+        const data = await response.json()
+        setMedicines(data.medicines || [])
+      }
+    } catch (error) {
+      console.error('Failed to fetch medicines:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const filterMedicines = () => {
+    let filtered = medicines
+
+    if (searchTerm) {
+      filtered = filtered.filter(medicine =>
+        medicine.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        medicine.manufacturer.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    }
+
+    if (selectedCategory !== "all") {
+      filtered = filtered.filter(medicine => medicine.category === selectedCategory)
+    }
+
+    if (selectedStatus !== "all") {
+      filtered = filtered.filter(medicine => medicine.status === selectedStatus)
+    }
+
+    setFilteredMedicines(filtered)
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'in_stock':
+        return 'bg-green-100 text-green-800'
+      case 'low_stock':
+        return 'bg-yellow-100 text-yellow-800'
+      case 'out_of_stock':
+        return 'bg-red-100 text-red-800'
+      default:
+        return 'bg-gray-100 text-gray-800'
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    try {
+      const url = editingMedicine 
+        ? `/api/pharmacy/inventory/medicines/${editingMedicine.id}`
+        : '/api/pharmacy/inventory/medicines'
+      
+      const method = editingMedicine ? 'PUT' : 'POST'
+      
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...formData,
+          quantity: parseInt(formData.quantity),
+          price: parseFloat(formData.price),
+        }),
+      })
+
+      if (response.ok) {
+        await fetchMedicines()
+        setIsAddDialogOpen(false)
+        setEditingMedicine(null)
+        resetForm()
+      }
+    } catch (error) {
+      console.error('Failed to save medicine:', error)
+    }
+  }
+
+  const handleEdit = (medicine: Medicine) => {
+    setEditingMedicine(medicine)
+    setFormData({
+      name: medicine.name,
+      category: medicine.category,
+      quantity: medicine.quantity.toString(),
+      unit: medicine.unit,
+      price: medicine.price.toString(),
+      expiryDate: medicine.expiryDate,
+      manufacturer: medicine.manufacturer,
+      description: medicine.description || "",
+      workingCondition: medicine.workingCondition,
+      batchNumber: medicine.batchNumber || "",
+      storageLocation: medicine.storageLocation || "",
+      supplier: medicine.supplier || "",
+    })
+    setIsAddDialogOpen(true)
+  }
+
+  const handleDelete = async (id: string) => {
+    if (confirm('Are you sure you want to delete this medicine?')) {
+      try {
+        const response = await fetch(`/api/pharmacy/inventory/medicines/${id}`, {
+          method: 'DELETE',
+        })
+
+        if (response.ok) {
+          await fetchMedicines()
+        }
+      } catch (error) {
+        console.error('Failed to delete medicine:', error)
+      }
+    }
+  }
+
+  const resetForm = () => {
+    setFormData({
+      name: "",
+      category: "",
+      quantity: "",
+      unit: "",
+      price: "",
+      expiryDate: "",
+      manufacturer: "",
+      description: "",
+      workingCondition: "good",
+      batchNumber: "",
+      storageLocation: "",
+      supplier: "",
+    })
+  }
+
+  const exportToCSV = () => {
+    const headers = [
+      "ID", "Name", "Category", "Quantity", "Unit", "Price", "Expiry Date", 
+      "Manufacturer", "Description", "Status", "Working Condition", "Batch Number", 
+      "Storage Location", "Supplier"
+    ]
+    
+    const csvContent = [
+      headers.join(","),
+      ...filteredMedicines.map(medicine => [
+        medicine.id,
+        `"${medicine.name.replace(/"/g, '""')}"`, // Escape quotes in CSV
+        `"${medicine.category.replace(/"/g, '""')}"`,
+        medicine.quantity,
+        `"${medicine.unit.replace(/"/g, '""')}"`,
+        medicine.price,
+        `"${medicine.expiryDate}"`,
+        `"${medicine.manufacturer.replace(/"/g, '""')}"`,
+        `"${(medicine.description || '').replace(/"/g, '""')}"`,
+        `"${medicine.status}"`,
+        `"${medicine.workingCondition}"`,
+        `"${(medicine.batchNumber || '').replace(/"/g, '""')}"`,
+        `"${(medicine.storageLocation || '').replace(/"/g, '""')}"`,
+        `"${(medicine.supplier || '').replace(/"/g, '""')}"`
+      ].join(","))
+    ].join("\n")
+    
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+    const link = document.createElement("a")
+    const url = URL.createObjectURL(blob)
+    link.setAttribute("href", url)
+    link.setAttribute("download", `pharmacy_inventory_${new Date().toISOString().split('T')[0]}.csv`)
+    link.style.visibility = "hidden"
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  const importFromCSV = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const csv = e.target?.result as string
+      const lines = csv.split('\n')
+      
+      if (lines.length < 2) {
+        alert('CSV file must contain at least a header row and one data row')
+        return
+      }
+
+      // Parse CSV headers
+      const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''))
+      
+      // Parse CSV data with better handling of quoted fields
+      const medicines = lines.slice(1).filter(line => line.trim()).map((line, index) => {
+        // Simple CSV parser that handles quoted fields
+        const values = []
+        let current = ''
+        let inQuotes = false
+        
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i]
+          
+          if (char === '"') {
+            inQuotes = !inQuotes
+          } else if (char === ',' && !inQuotes) {
+            values.push(current.trim())
+            current = ''
+          } else {
+            current += char
+          }
+        }
+        values.push(current.trim()) // Add the last value
+        
+        return {
+          // Generate a unique ID for new entries to avoid duplicates
+          id: values[0]?.trim() || `imported_${Date.now()}_${index}`,
+          name: values[1]?.replace(/"/g, '').trim() || '',
+          category: values[2]?.replace(/"/g, '').trim() || '',
+          quantity: parseInt(values[3]?.trim() || '0'),
+          unit: values[4]?.replace(/"/g, '').trim() || '',
+          price: parseFloat(values[5]?.trim() || '0'),
+          expiryDate: values[6]?.replace(/"/g, '').trim() || '',
+          manufacturer: values[7]?.replace(/"/g, '').trim() || '',
+          description: values[8]?.replace(/"/g, '').trim() || '',
+          status: values[9]?.replace(/"/g, '').trim() || 'in_stock',
+          workingCondition: values[10]?.replace(/"/g, '').trim() || 'good',
+          batchNumber: values[11]?.replace(/"/g, '').trim() || '',
+          storageLocation: values[12]?.replace(/"/g, '').trim() || '',
+          supplier: values[13]?.replace(/"/g, '').trim() || ''
+        }
+      })
+
+      // Validate and clean data
+      const validMedicines = medicines.filter(medicine => 
+        medicine.name && medicine.category && medicine.quantity >= 0 && medicine.price >= 0
+      )
+
+      if (validMedicines.length === 0) {
+        alert('No valid medicines found in CSV file')
+        return
+      }
+
+      if (validMedicines.length !== medicines.length) {
+        alert(`Warning: ${medicines.length - validMedicines.length} invalid entries were skipped`)
+      }
+
+      // Import medicines sequentially to avoid conflicts
+      const importMedicines = async () => {
+        let successCount = 0
+        let errorCount = 0
+        
+        for (const medicine of validMedicines) {
+          try {
+            // Remove ID for new entries to let the server generate it
+            const { id, ...medicineData } = medicine
+            
+            const response = await fetch('/api/pharmacy/inventory/medicines', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(medicineData),
+            })
+
+            if (response.ok) {
+              successCount++
+            } else {
+              errorCount++
+              console.error('Failed to import medicine:', medicine.name)
+            }
+          } catch (error) {
+            errorCount++
+            console.error('Failed to import medicine:', error)
+          }
+          
+          // Small delay to avoid overwhelming the server
+          await new Promise(resolve => setTimeout(resolve, 100))
+        }
+
+        // Show import results
+        alert(`Import completed!\nSuccessfully imported: ${successCount} medicines\nFailed: ${errorCount} medicines`)
+        
+        // Refresh the list after import
+        fetchMedicines()
+      }
+
+      // Start the import process
+      importMedicines()
+    }
+    reader.readAsText(file)
+    
+    // Reset the file input
+    event.target.value = ''
+  }
+
+  const lowStockCount = medicines.filter(m => m.status === 'low_stock').length
+  const outOfStockCount = medicines.filter(m => m.status === 'out_of_stock').length
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold">Pharmacy Inventory</h2>
+          <p className="text-gray-600">Manage medicine stock and inventory</p>
+        </div>
+        <div className="flex space-x-2">
+          <input
+            type="file"
+            accept=".csv"
+            onChange={importFromCSV}
+            className="hidden"
+            id="csv-import"
+          />
+          <Button
+            variant="outline"
+            onClick={() => document.getElementById('csv-import')?.click()}
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            Import CSV
+          </Button>
+          <Button
+            variant="outline"
+            onClick={exportToCSV}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
+          </Button>
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={() => {
+                setEditingMedicine(null)
+                resetForm()
+              }}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Medicine
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>
+                  {editingMedicine ? 'Edit Medicine' : 'Add New Medicine'}
+                </DialogTitle>
+                <DialogDescription>
+                  {editingMedicine ? 'Update medicine information' : 'Add a new medicine to inventory'}
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Medicine Name *</Label>
+                  <Input
+                    id="name"
+                    value={formData.name}
+                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                    required
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="category">Category *</Label>
+                  <Select value={formData.category} onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="quantity">Quantity *</Label>
+                    <Input
+                      id="quantity"
+                      type="number"
+                      value={formData.quantity}
+                      onChange={(e) => setFormData(prev => ({ ...prev, quantity: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="unit">Unit *</Label>
+                    <Select value={formData.unit} onValueChange={(value) => setFormData(prev => ({ ...prev, unit: value }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select unit" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="tablets">Tablets</SelectItem>
+                        <SelectItem value="capsules">Capsules</SelectItem>
+                        <SelectItem value="ml">ML</SelectItem>
+                        <SelectItem value="mg">MG</SelectItem>
+                        <SelectItem value="pieces">Pieces</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="price">Price *</Label>
+                    <Input
+                      id="price"
+                      type="number"
+                      step="0.01"
+                      value={formData.price}
+                      onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="expiryDate">Expiry Date *</Label>
+                    <Input
+                      id="expiryDate"
+                      type="date"
+                      value={formData.expiryDate}
+                      onChange={(e) => setFormData(prev => ({ ...prev, expiryDate: e.target.value }))}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="manufacturer">Manufacturer *</Label>
+                  <Input
+                    id="manufacturer"
+                    value={formData.manufacturer}
+                    onChange={(e) => setFormData(prev => ({ ...prev, manufacturer: e.target.value }))}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="description">Description</Label>
+                  <Input
+                    id="description"
+                    value={formData.description}
+                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="workingCondition">Working Condition</Label>
+                  <Select value={formData.workingCondition} onValueChange={(value) => setFormData(prev => ({ ...prev, workingCondition: value as any }))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {workingConditions.map((condition) => (
+                        <SelectItem key={condition.value} value={condition.value}>
+                          {condition.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="batchNumber">Batch Number</Label>
+                    <Input
+                      id="batchNumber"
+                      value={formData.batchNumber}
+                      onChange={(e) => setFormData(prev => ({ ...prev, batchNumber: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="storageLocation">Storage Location</Label>
+                    <Input
+                      id="storageLocation"
+                      value={formData.storageLocation}
+                      onChange={(e) => setFormData(prev => ({ ...prev, storageLocation: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="supplier">Supplier</Label>
+                  <Input
+                    id="supplier"
+                    value={formData.supplier}
+                    onChange={(e) => setFormData(prev => ({ ...prev, supplier: e.target.value }))}
+                  />
+                </div>
+
+                <div className="flex justify-end space-x-2">
+                  <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit">
+                    {editingMedicine ? 'Update' : 'Add'} Medicine
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+
+      {/* Alerts */}
+      {(lowStockCount > 0 || outOfStockCount > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {lowStockCount > 0 && (
+            <Alert>
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                {lowStockCount} medicine(s) are low in stock. Please restock soon.
+              </AlertDescription>
+            </Alert>
+          )}
+          {outOfStockCount > 0 && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                {outOfStockCount} medicine(s) are out of stock. Immediate action required.
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
+      )}
+
+      {/* Filters */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Filter className="h-5 w-5" />
+            <span>Filters</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="search">Search</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  id="search"
+                  placeholder="Search medicines..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="category">Category</Label>
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {categories.map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="status">Status</Label>
+              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="in_stock">In Stock</SelectItem>
+                  <SelectItem value="low_stock">Low Stock</SelectItem>
+                  <SelectItem value="out_of_stock">Out of Stock</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Medicine Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Package className="h-5 w-5" />
+            <span>Medicine Inventory ({filteredMedicines.length} items)</span>
+          </CardTitle>
+          <CardDescription>
+            Current stock status of all medicines
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading inventory...</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Medicine Name</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Quantity</TableHead>
+                    <TableHead>Price</TableHead>
+                    <TableHead>Expiry Date</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Working Condition</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredMedicines.map((medicine) => (
+                    <TableRow key={medicine.id}>
+                      <TableCell className="font-medium">{medicine.name}</TableCell>
+                      <TableCell>{medicine.category}</TableCell>
+                      <TableCell>{medicine.quantity} {medicine.unit}</TableCell>
+                      <TableCell>${medicine.price.toFixed(2)}</TableCell>
+                      <TableCell>{new Date(medicine.expiryDate).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <Badge className={getStatusColor(medicine.status)}>
+                          {medicine.status.replace('_', ' ')}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={
+                          medicine.workingCondition === 'good' ? 'bg-green-100 text-green-800' :
+                          medicine.workingCondition === 'damaged' ? 'bg-yellow-100 text-yellow-800' :
+                          medicine.workingCondition === 'expired' ? 'bg-red-100 text-red-800' :
+                          'bg-purple-100 text-purple-800'
+                        }>
+                          {medicine.workingCondition}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEdit(medicine)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDelete(medicine.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              
+              {filteredMedicines.length === 0 && (
+                <div className="text-center py-8">
+                  <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600">No medicines found matching your filters.</p>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}

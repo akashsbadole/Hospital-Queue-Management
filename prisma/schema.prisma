@@ -1,0 +1,368 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// User model for authentication
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("USER") // USER, DOCTOR, NURSE, PHARMACIST, STAFF, ADMIN, SUPER_ADMIN
+  department String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  receipts Receipt[]
+  assignedTickets SupportTicket[] @relation("AssignedTickets")
+  supportTicketResponses SupportTicketResponse[]
+  supportTickets SupportTicket[]
+  prescriptions Prescription[]
+
+  @@map("users")
+}
+
+// Department model
+model Department {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  code        String?
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  oPDQueues OPDQueue[]
+  pharmacyQueues PharmacyQueue[]
+
+  @@map("departments")
+}
+
+// Patient model with enhanced fields
+model Patient {
+  id                  String   @id @default(cuid())
+  firstName           String
+  lastName            String
+  email               String?  @unique
+  phone               String?
+  age                 Int
+  gender              String   // M, F, OTHER
+  dateOfBirth         DateTime?
+  bloodGroup          String?  // A+, A-, B+, B-, AB+, AB-, O+, O-
+  address             String?
+  city                String?
+  state               String?
+  country             String?
+  postalCode          String?
+  emergencyContact    String?
+  emergencyPhone      String?
+  
+  // New fields for enhanced registration
+  caste               String?  // General, OBC, SC, ST, Other
+  religion            String?  // HINDU, MUSLIM, CHRISTIAN, SIKH, BUDDHIST, JAIN, OTHER
+  hasBPLCard          Boolean  @default(false)
+  bplCardNumber       String?
+  hasYellowCard       Boolean  @default(false)
+  yellowCardNumber    String?
+  aadhaarNumber       String?  @unique
+  panNumber           String?
+  nationality         String?  @default("Indian")
+  maritalStatus       String?  // SINGLE, MARRIED, DIVORCED, WIDOWED
+  occupation          String?
+  annualIncome        String?
+  education           String?
+  
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  receipts Receipt[]
+  oPDQueues OPDQueue[]
+  pharmacyQueues PharmacyQueue[]
+  supportTickets SupportTicket[]
+  prescriptions Prescription[]
+
+  @@map("patients")
+}
+
+// OPD Queue
+model OPDQueue {
+  id           String   @id @default(cuid())
+  tokenNumber  Int
+  patientId    String
+  patient      Patient  @relation(fields: [patientId], references: [id])
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+  doctorId     String?
+  status       String   @default("WAITING") // WAITING, CALLED, SERVING, COMPLETED, CANCELLED
+  priority     String   @default("NORMAL") // NORMAL, URGENT, EMERGENCY
+  notes        String?
+  calledAt     DateTime?
+  servingAt    DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("opd_queues")
+}
+
+// Pharmacy Queue
+model PharmacyQueue {
+  id           String   @id @default(cuid())
+  tokenNumber  String
+  patientId    String
+  patient      Patient  @relation(fields: [patientId], references: [id])
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+  status       String   @default("WAITING") // WAITING, CALLED, SERVING, COMPLETED, CANCELLED
+  priority     String   @default("NORMAL") // NORMAL, URGENT, EMERGENCY
+  notes        String?
+  calledAt     DateTime?
+  servingAt    DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("pharmacy_queues")
+}
+
+// Health Record
+model HealthRecord {
+  id          String   @id @default(cuid())
+  patientId   String
+  doctorId    String?
+  diagnosis   String
+  symptoms    String?
+  treatment   String?
+  prescription String?
+  notes       String?
+  visitDate   DateTime @default(now())
+  followUpDate DateTime?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("health_records")
+}
+
+// Prescription
+model Prescription {
+  id          String   @id @default(cuid())
+  patientId   String
+  doctorId    String?
+  diagnosis   String
+  medications String   // JSON string of medication array
+  notes       String?
+  issuedDate  DateTime @default(now())
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor      User?    @relation(fields: [doctorId], references: [id], onDelete: SetNull)
+
+  @@map("prescriptions")
+}
+
+// Medicine Inventory
+model Medicine {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  category    String
+  brand       String?
+  manufacturer String?
+  batchNumber String?
+  expiryDate  DateTime
+  quantity    Int      @default(0)
+  unitPrice   Float
+  sellingPrice Float
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("medicines")
+}
+
+// Receipt model for payments and billing
+model Receipt {
+  id            String   @id @default(cuid())
+  patientId     String
+  userId        String
+  receiptNumber String   @unique
+  type          String   // CONSULTATION, MEDICINE, LAB_TEST, OTHER
+  amount        Float
+  description   String?
+  items         String?  // JSON string of items array
+  status        String   @default("PAID") // PAID, PENDING, CANCELLED, REFUNDED
+  paymentMethod String?  // CASH, CARD, UPI, INSURANCE
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  patient Patient @relation(fields: [patientId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@map("receipts")
+}
+
+// Hospital Settings for white label customization
+model HospitalSetting {
+  id             String   @id @default(cuid())
+  hospitalName   String   @default("Hospital Queue Management")
+  logoUrl        String?
+  primaryColor   String   @default("#3b82f6")
+  secondaryColor String   @default("#64748b")
+  address        String?
+  phone          String?
+  email          String?
+  website        String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("hospital_settings")
+}
+
+// Maintenance Mode settings
+model MaintenanceMode {
+  id          String   @id @default(cuid())
+  isEnabled   Boolean  @default(false)
+  message     String   @default("System is under maintenance. Please check back later.")
+  startTime   DateTime?
+  endTime     DateTime?
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("maintenance_mode")
+}
+
+// Staff Notices for queue display
+model StaffNotice {
+  id          String   @id @default(cuid())
+  title       String
+  content     String
+  type        String   @default("INFO") // INFO, WARNING, URGENT, ANNOUNCEMENT
+  targetRole  String?  // DOCTOR, NURSE, STAFF, ADMIN, ALL
+  isActive    Boolean  @default(true)
+  priority    Int      @default(0) // Higher number = higher priority
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("staff_notices")
+}
+
+// Report Logs for super admin
+model ReportLog {
+  id          String   @id @default(cuid())
+  reportType  String   // PATIENTS, FINANCIAL, QUEUE, MEDICINE, STAFF
+  title       String
+  description String?
+  data        String   // JSON string of report data
+  format      String   @default("JSON") // JSON, CSV, PDF
+  generatedBy String
+  createdAt   DateTime @default(now())
+
+  @@map("report_logs")
+}
+
+// Chat Conversation model for chatbot
+model ChatConversation {
+  id          String   @id @default(cuid())
+  userId      String?
+  sessionId   String   // For anonymous users
+  title       String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  messages ChatMessage[]
+
+  @@map("chat_conversations")
+}
+
+// Chat Message model for chatbot
+model ChatMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String   // USER, ASSISTANT, SYSTEM
+  content        String
+  metadata       String?  // JSON string for additional data
+  createdAt      DateTime @default(now())
+
+  @@map("chat_messages")
+}
+
+// Support Ticket model for customer support
+model SupportTicket {
+  id          String   @id @default(cuid())
+  ticketNumber String  @unique
+  title       String
+  description String
+  category    String   @default("GENERAL") // GENERAL, TECHNICAL, BILLING, MEDICAL, QUEUE, PHARMACY
+  priority    String   @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  status      String   @default("OPEN") // OPEN, IN_PROGRESS, RESOLVED, CLOSED
+  userId      String?
+  patientId   String?
+  assignedTo  String?  // Staff user ID
+  email       String?
+  phone       String?
+  attachments String?  // JSON string of file paths
+  tags        String?  // JSON string of tags
+  resolution  String?
+  resolvedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user        User?        @relation(fields: [userId], references: [id])
+  patient     Patient?     @relation(fields: [patientId], references: [id])
+  assignee    User?        @relation("AssignedTickets", fields: [assignedTo], references: [id])
+  responses   SupportTicketResponse[]
+
+  @@map("support_tickets")
+}
+
+// Support Ticket Response model
+model SupportTicketResponse {
+  id          String   @id @default(cuid())
+  ticketId    String
+  ticket      SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  userId      String?
+  content     String
+  isInternal  Boolean  @default(false) // Internal notes vs customer responses
+  attachments String?  // JSON string of file paths
+  createdAt   DateTime @default(now())
+
+  // Relations
+  user        User?   @relation(fields: [userId], references: [id])
+
+  @@map("support_ticket_responses")
+}
+
+// Chatbot Knowledge Base for hospital-specific responses
+model ChatbotKnowledge {
+  id          String   @id @default(cuid())
+  category    String   // GENERAL, QUEUE, PHARMACY, BILLING, MEDICAL, TECHNICAL
+  question    String
+  answer      String
+  keywords    String?  // JSON string of keywords for matching
+  isActive    Boolean  @default(true)
+  priority    Int      @default(0) // Higher number = higher priority
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("chatbot_knowledge")
+}
