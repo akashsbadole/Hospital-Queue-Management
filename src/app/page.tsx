@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Users, Stethoscope, Package, Monitor, Settings, Plus, FileText, Clock, CheckCircle, AlertCircle, LogOut, UserPlus, Heart, Activity, Prescription, MessageSquare } from "lucide-react"
+import { Users, Stethoscope, Package, Monitor, Settings, Plus, FileText, Clock, CheckCircle, AlertCircle, LogOut, UserPlus, Heart, Activity, Prescription, MessageSquare, UserCheck, QrCode } from "lucide-react"
 import PatientRegistrationForm from "@/components/PatientRegistrationForm"
 import OPDQueueManagement from "@/components/OPDQueueManagement"
 import PharmacyQueueManagement from "@/components/PharmacyQueueManagement"
@@ -19,6 +19,8 @@ import AdminTabbedPanel from "@/components/AdminTabbedPanel"
 import CallNextPatient from "@/components/CallNextPatient"
 import SupportManagement from "@/components/SupportManagement"
 import Chatbot from "@/components/Chatbot"
+import VisitorManagementSystem from "@/components/VisitorManagementSystem"
+import AssetManagementSystem from "@/components/AssetManagementSystem"
 import { useAuth } from "@/hooks/useAuth"
 import { useHospitalSettings } from "@/hooks/useHospitalSettings"
 
@@ -97,6 +99,16 @@ export default function HospitalDashboard() {
     // Support Management tab for Staff, Nurse, Admin, Super Admin
     if (['STAFF', 'NURSE', 'ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
       tabs.push({ value: "support", label: "Support", icon: MessageSquare })
+    }
+
+    // Visitor Management tab for Staff, Nurse, Admin, Super Admin
+    if (['STAFF', 'NURSE', 'ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
+      tabs.push({ value: "visitors", label: "Visitors", icon: UserCheck })
+    }
+
+    // Asset Management tab for Staff, Nurse, Admin, Super Admin
+    if (['STAFF', 'NURSE', 'ADMIN', 'SUPER_ADMIN'].includes(user.role)) {
+      tabs.push({ value: "assets", label: "Assets", icon: QrCode })
     }
 
     return tabs
@@ -415,6 +427,18 @@ export default function HospitalDashboard() {
           {['STAFF', 'NURSE', 'ADMIN', 'SUPER_ADMIN'].includes(user.role) && (
             <TabsContent value="support">
               <SupportManagement userRole={user.role} userId={user.id} />
+            </TabsContent>
+          )}
+
+          {['STAFF', 'NURSE', 'ADMIN', 'SUPER_ADMIN'].includes(user.role) && (
+            <TabsContent value="visitors">
+              <VisitorManagementSystem />
+            </TabsContent>
+          )}
+
+          {['STAFF', 'NURSE', 'ADMIN', 'SUPER_ADMIN'].includes(user.role) && (
+            <TabsContent value="assets">
+              <AssetManagementSystem />
             </TabsContent>
           )}
         </Tabs>

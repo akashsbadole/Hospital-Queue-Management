@@ -27,6 +27,9 @@ model User {
   supportTicketResponses SupportTicketResponse[]
   supportTickets SupportTicket[]
   prescriptions Prescription[]
+  doctorSeats DoctorSeat[]
+  assetLogs AssetLog[]
+  hostedVisitors Visitor[] @relation("HostVisitors")
 
   @@map("users")
 }
@@ -43,6 +46,7 @@ model Department {
 
   oPDQueues OPDQueue[]
   pharmacyQueues PharmacyQueue[]
+  doctorSeats DoctorSeat[]
 
   @@map("departments")
 }
@@ -90,6 +94,7 @@ model Patient {
   pharmacyQueues PharmacyQueue[]
   supportTickets SupportTicket[]
   prescriptions Prescription[]
+  visitors Visitor[] @relation("Visitors")
 
   @@map("patients")
 }
@@ -190,6 +195,9 @@ model Medicine {
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  // Relations
+  expiryAlerts ExpiryAlert[]
 
   @@map("medicines")
 }
@@ -365,4 +373,139 @@ model ChatbotKnowledge {
   updatedAt   DateTime @updatedAt
 
   @@map("chatbot_knowledge")
+}
+
+// Visitor Management System
+model Visitor {
+  id            String   @id @default(cuid())
+  visitorNumber String   @unique
+  firstName     String
+  lastName      String
+  phone         String?
+  email         String?
+  purpose       String   // VISIT_PATIENT, DELIVERY, MAINTENANCE, BUSINESS, OTHER
+  patientId     String?  // If visiting a patient
+  department    String?  // If visiting a department
+  hostUserId    String?  // Staff member being visited
+  idProof       String?  // Type of ID proof
+  idProofNumber String?  // ID proof number
+  qrCode        String?  // QR code data
+  barcode       String?  // Barcode data
+  entryTime     DateTime @default(now())
+  exitTime      DateTime?
+  status        String   @default("ACTIVE") // ACTIVE, EXITED, BLACKLISTED
+  notes         String?
+  createdBy     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  patient Patient? @relation("Visitors", fields: [patientId], references: [id])
+  host    User?    @relation("HostVisitors", fields: [hostUserId], references: [id])
+
+  @@map("visitors")
+}
+
+// Hospital Asset QR Code Tracker
+model HospitalAsset {
+  id            String   @id @default(cuid())
+  assetNumber   String   @unique
+  name          String
+  category      String   // BED, WHEELCHAIR, EQUIPMENT, INSTRUMENT, FURNITURE, OTHER
+  subcategory   String?  // More specific categorization
+  brand         String?
+  model         String?
+  serialNumber  String?
+  qrCode        String?  // QR code data
+  barcode       String?  // Barcode data
+  location      String?  // Current location
+  department    String?  // Department responsible
+  status        String   @default("AVAILABLE") // AVAILABLE, IN_USE, MAINTENANCE, RETIRED, LOST
+  condition     String   @default("GOOD") // EXCELLENT, GOOD, FAIR, POOR, DAMAGED
+  purchaseDate  DateTime?
+  warrantyExpiry DateTime?
+  lastMaintenance DateTime?
+  nextMaintenance DateTime?
+  notes         String?
+  createdBy     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  assetLogs AssetLog[]
+
+  @@map("hospital_assets")
+}
+
+// Asset Usage and Maintenance Logs
+model AssetLog {
+  id          String   @id @default(cuid())
+  assetId     String
+  asset       HospitalAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  action      String   // CHECKED_OUT, CHECKED_IN, MAINTENANCE, REPAIR, CLEANING, OTHER
+  notes       String?
+  scanData    String?  // QR/Barcode scan data
+  location    String?  // Location at time of scan
+  condition   String?  // Condition reported during scan
+  createdAt   DateTime @default(now())
+
+  @@map("asset_logs")
+}
+
+// Doctor Seat Subscription Model
+model DoctorSeat {
+  id            String   @id @default(cuid())
+  doctorId      String
+  doctor        User     @relation(fields: [doctorId], references: [id])
+  departmentId  String
+  department    Department @relation(fields: [departmentId], references: [id])
+  seatNumber    Int
+  isAvailable   Boolean  @default(true)
+  maxPatients  Int      @default(20) // Maximum patients per day
+  currentCount Int      @default(0)
+  subscriptionStart DateTime @default(now())
+  subscriptionEnd   DateTime?
+  pricePerSeat Float    @default(0)
+  status        String   @default("ACTIVE") // ACTIVE, INACTIVE, EXPIRED
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("doctor_seats")
+}
+
+// SMS/WhatsApp Notification Logs
+model NotificationLog {
+  id          String   @id @default(cuid())
+  recipient   String   // Phone number
+  type        String   // SMS, WHATSAPP
+  category    String   // QUEUE_TOKEN, APPOINTMENT_REMINDER, PRESCRIPTION_READY, OTHER
+  message     String
+  status      String   @default("PENDING") // PENDING, SENT, DELIVERED, FAILED
+  sentAt      DateTime?
+  deliveredAt DateTime?
+  error       String?
+  metadata    String?  // JSON string for additional data
+  createdAt   DateTime @default(now())
+
+  @@map("notification_logs")
+}
+
+// Pharmacy Expiry Alert System
+model ExpiryAlert {
+  id          String   @id @default(cuid())
+  medicineId  String
+  medicine    Medicine @relation(fields: [medicineId], references: [id], onDelete: Cascade)
+  alertType   String   @default("EXPIRY_SOON") // EXPIRY_SOON, EXPIRED, LOW_STOCK
+  daysBefore  Int      @default(30) // Days before expiry to alert
+  threshold   Int      @default(10) // Stock threshold for low stock alerts
+  isActive    Boolean  @default(true)
+  lastSent    DateTime?
+  nextAlert   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("expiry_alerts")
 }

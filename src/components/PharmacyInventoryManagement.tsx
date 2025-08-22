@@ -10,7 +10,10 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Package, Plus, Edit, Trash2, AlertTriangle, Search, Filter, Download, Upload, FileText } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Package, Plus, Edit, Trash2, AlertTriangle, Search, Filter, Download, Upload, FileText, Tabs } from "lucide-react"
+import { format } from "date-fns"
+import PharmacyExpiryAlerts from "./PharmacyExpiryAlerts"
 
 interface Medicine {
   id: string
@@ -130,6 +133,14 @@ export default function PharmacyInventoryManagement() {
       default:
         return 'bg-gray-100 text-gray-800'
     }
+  }
+
+  const isExpiringSoon = (expiryDate: string) => {
+    const today = new Date()
+    const expiry = new Date(expiryDate)
+    const diffTime = expiry.getTime() - today.getTime()
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+    return diffDays <= 30 // Expiring within 30 days
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
